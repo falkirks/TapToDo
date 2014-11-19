@@ -17,6 +17,7 @@ class Block{
     }
     public function addCommand($cmd){
         $this->cmd[] = $cmd;
+        $this->plugin->saveBlock($this);
     }
     public function delCommand($cmd){
         $ret = false;
@@ -26,6 +27,9 @@ class Block{
                 $ret = true;
             }
         }
+        if($ret){
+            $this->plugin->saveBlock($this);
+        }
         return $ret;
     }
     public function runCommands(Player $p){
@@ -34,19 +38,20 @@ class Block{
             $c = str_replace("%x", $p->getX(), $c);
             $c = str_replace("%y", $p->getY(), $c);
             $c = str_replace("%z", $p->getZ(), $c);
-            if (strpos($c, "%safe") !== false) {
-                $c = str_replace("%safe", "", $c);
-                $this->plugin->getServer()->dispatchCommand($p, $c);
+
+            if (strpos($c, "%pow") !== false && ($c = str_replace("%pow", "", $c))) {
+                $this->plugin->getServer()->dispatchCommand(new ConsoleCommandSender(), $c);
             }
-            elseif(strpos($c, "%op") !== false){
-                $c = str_replace("%op", "", $c);
+            elseif(strpos($c, "%op") !== false && ($c = str_replace("%op", "", $c)) && !$p->isOp()){
                 $p->setOp(true);
                 $this->plugin->getServer()->dispatchCommand($p, $c);
                 $p->setOp(false);
             }
             else{
-                $this->plugin->getServer()->dispatchCommand(new ConsoleCommandSender(), $c);
+                $c = str_replace("%safe", "", $c); //Partial backwards compatibility
+                $this->plugin->getServer()->dispatchCommand($p, $c);
             }
+            $this->plugin->getLogger()->info($c);
         }
     }
     public function nameBlock($name){
@@ -63,11 +68,11 @@ class Block{
     }
     public function toArray(){
         $arr = array(
-            "x" => $this->getPos()->getX(),
-            "y" => $this->getPos()->getY(),
-            "z" => $this->getPos()->getZ(),
-            "level" => $this->getPos()->getLevel()->getName(),
-            "commands" => $this->getCommands());
+            'x' => $this->getPos()->getX(),
+            'y' => $this->getPos()->getY(),
+            'z' => $this->getPos()->getZ(),
+            'level' => $this->getPos()->getLevel()->getName(),
+            'commands' => $this->getCommands());
         if($this->name !== false) $arr["name"] = $this->name;
         return $arr;
     }

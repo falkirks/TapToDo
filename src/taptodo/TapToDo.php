@@ -12,11 +12,17 @@ use pocketmine\plugin\PluginBase;
 use pocketmine\utils\Config;
 
 class TapToDo extends PluginBase implements CommandExecutor, Listener{
-    public $s, $b, $config;
+    public $s;
+    /** @var  Config */
+    public $config;
+    public $b;
     public function onEnable(){
         @mkdir($this->getDataFolder());
         $this->s = [];
+        $this->b = [];
+        $this->saveResource("blocks.yml");
         $this->config = new Config($this->getDataFolder() . "blocks.yml", Config::YAML, array());
+        $this->config = (new ConfigUpdater($this->config, $this))->checkConfig();
         $this->getServer()->getPluginManager()->registerEvents($this, $this);
         $this->parseBlockData();
     }
@@ -90,8 +96,8 @@ class TapToDo extends PluginBase implements CommandExecutor, Listener{
         }
         else{
             if($sender instanceof Player){
-                if(isset($args[1])){
-                    if($sender->hasPermission("taptodo.command." . $args[1])){
+                if(isset($args[0])){
+                    if($sender->hasPermission("taptodo.command." . $args[0])){
                         $this->s[$sender->getName()] = $args;
                         $sender->sendMessage("Tap a block to complete action...");
                         return true;
@@ -208,7 +214,7 @@ class TapToDo extends PluginBase implements CommandExecutor, Listener{
     }
     public function parseBlockData(){
         $this->b = [];
-        foreach($this->config->getAll() as $i => $block){
+        foreach($this->config->get("blocks") as $i => $block){
             if($this->getServer()->isLevelLoaded($block["level"])){
                 $pos = new Position($block["x"], $block["y"], $block["z"], $this->getServer()->getLevelByName($block["level"]));
                 if(isset($block["name"])) $this->b[$pos->__toString()] = new Block($pos, $block["commands"], $this->config, $block["name"]);
@@ -220,19 +226,23 @@ class TapToDo extends PluginBase implements CommandExecutor, Listener{
         }
     }
     public function removeBlock(Block $block){
-        $this->config->remove($block->id);
+        $blocks = $this->config->get("blocks");
+        unset($blocks[$block->id]);
+        $this->config->set("blocks", $blocks);
         $this->config->save();
         $this->parseBlockData();
     }
     public function addBlock(Position $p, $cmd){
-        $block = new Block(new Position($p->getX(), $p->getY(), $p->getZ(), $p->getLevel()), [$cmd], $this, count($this->config->getAll()));
+        $block = new Block(new Position($p->getX(), $p->getY(), $p->getZ(), $p->getLevel()), [$cmd], $this, count($this->config->get("blocks")));
         $this->saveBlock($block);
         $this->config->save();
         return $block;
     }
     public function saveBlock(Block $block){
         $this->b[$block->getPos()->getX() . ":" . $block->getPos()->getY() . ":" . $block->getPos()->getZ() . ":" . $block->getPos()->getLevel()->getName()] = $block;
-        $this->config->set($block->id, $block->toArray());
+        $blocks = $this->config->get("blocks");
+        $blocks[$block->id] = $block->toArray();
+        $this->config->set("blocks", $blocks);
     }
     public function onDisable(){
         $this->getLogger()->info("Saving blocks...");
@@ -241,4 +251,19 @@ class TapToDo extends PluginBase implements CommandExecutor, Listener{
         }
         $this->config->save();
     }
+
+    /**
+     * @return mixed
+     */
+    public function getConfig(){
+        return $this->config;
+    }
+
+    /**
+     * @param mixed $config
+     */
+    public function setConfig($config){
+        $this->config = $config;
+    }
+
 }
