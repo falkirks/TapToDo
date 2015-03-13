@@ -17,7 +17,7 @@ class TapToDo extends PluginBase implements CommandExecutor, Listener{
     public $config;
     public $b;
     public function onEnable(){
-        @mkdir($this->getDataFolder());
+   //     @mkdir($this->getDataFolder());
         $this->s = [];
         $this->b = [];
         $this->saveResource("blocks.yml");
