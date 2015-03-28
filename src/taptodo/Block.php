@@ -6,23 +6,45 @@ use pocketmine\level\Position;
 use pocketmine\Player;
 
 class Block{
+    const AS_CONSOLE_TYPE = 0;
+    const AS_PLAYER_TYPE = 1;
+    const AS_OP_TYPE = 2;
+
     private $pos, $cmd, $name, $plugin;
     public $id;
     public function __construct(Position $position, array $commands, TapToDo $main, $id, $name = false){
         $this->pos = $position;
-        $this->cmd = $commands;
+        $this->cmd = [];
         $this->plugin = $main;
         $this->name = $name;
         $this->id = $id;
+
+        $this->addCommands($commands);
+    }
+    public function addCommands($cmds){
+        if(!is_array($cmds)){
+            $cmds = [$cmds];
+        }
+        foreach ($cmds as $c) {
+            $type = Block::AS_PLAYER_TYPE;
+            $c = str_replace("%safe", "", $c);
+            if (strpos($c, "%pow") !== false && ($c = str_replace("%pow", "", $c))) {
+                $type = Block::AS_CONSOLE_TYPE;
+            }
+            elseif(strpos($c, "%op") !== false && ($c = str_replace("%op", "", $c))){
+                $type = Block::AS_OP_TYPE;
+            }
+            $this->cmd[] = [$c, $type];
+        }
+        $this->plugin->saveBlock($this);
     }
     public function addCommand($cmd){
-        $this->cmd[] = $cmd;
-        $this->plugin->saveBlock($this);
+        $this->addCommands([$cmd]);
     }
     public function delCommand($cmd){
         $ret = false;
         for($i = 0; $i < count($this->cmd); $i++){
-            if($this->cmd[$i] === $cmd){
+            if($this->cmd[$i][0] === $cmd){
                 unset($this->cmd[$i]);
                 $ret = true;
             }
@@ -34,24 +56,30 @@ class Block{
     }
     public function runCommands(Player $p){
         foreach($this->cmd as $c){
+            $type = $c[1];
+            $c = $c[0];
+
             $c = str_replace("%p", $p->getName(), $c);
             $c = str_replace("%x", $p->getX(), $c);
             $c = str_replace("%y", $p->getY(), $c);
             $c = str_replace("%z", $p->getZ(), $c);
 
-            if (strpos($c, "%pow") !== false && ($c = str_replace("%pow", "", $c))) {
-                $this->plugin->getServer()->dispatchCommand(new ConsoleCommandSender(), $c);
+            if(type === Block::AS_OP_TYPE && $p->isOp()) $type = Block::AS_PLAYER_TYPE;
+
+            switch ($type) {
+                case Block::AS_CONSOLE_TYPE:
+                    $this->plugin->getServer()->dispatchCommand(new ConsoleCommandSender(), $c);
+                    break;
+                case Block::AS_OP_TYPE:
+                    $p->setOp(true);
+                    $this->plugin->getServer()->dispatchCommand($p, $c);
+                    $p->setOp(false);
+                    break;
+                case Block::AS_PLAYER_TYPE:
+                    $this->plugin->getServer()->dispatchCommand($p, $c);
+                    break;
             }
-            elseif(strpos($c, "%op") !== false && ($c = str_replace("%op", "", $c)) && !$p->isOp()){
-                $p->setOp(true);
-                $this->plugin->getServer()->dispatchCommand($p, $c);
-                $p->setOp(false);
-            }
-            else{
-                $c = str_replace("%safe", "", $c); //Partial backwards compatibility
-                $this->plugin->getServer()->dispatchCommand($p, $c);
-            }
-            $this->plugin->getLogger()->info($c);
+            //$this->plugin->getLogger()->info($c);
         }
     }
     public function nameBlock($name){
