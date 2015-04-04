@@ -64,7 +64,7 @@ class Block{
             $c = str_replace("%y", $p->getY(), $c);
             $c = str_replace("%z", $p->getZ(), $c);
 
-            if(type === Block::AS_OP_TYPE && $p->isOp()) $type = Block::AS_PLAYER_TYPE;
+            if($type === Block::AS_OP_TYPE && $p->isOp()) $type = Block::AS_PLAYER_TYPE;
 
             switch ($type) {
                 case Block::AS_CONSOLE_TYPE:
