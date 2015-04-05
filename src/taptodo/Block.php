@@ -86,7 +86,9 @@ class Block{
         $this->name = $name;
     }
     public function getCommands(){
-        return $this->cmd;
+        $out = [];
+        foreach($this->cmd as $cmd) $out[] = $cmd[0];
+        return $out;
     }
     public function getName(){
         return $this->name;
