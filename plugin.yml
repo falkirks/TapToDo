@@ -1,6 +1,6 @@
 name: TapToDo
 main: taptodo\TapToDo
-version: 2.1.1
+version: 2.1.2
 author: Falk
 api: [1.0.0]
 load: POSTWORLD
