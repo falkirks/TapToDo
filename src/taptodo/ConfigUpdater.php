@@ -12,7 +12,7 @@ class ConfigUpdater{
     public function __construct(Config $config, TapToDo $tapToDo){
         $this->config = $config;
         $this->tapToDo = $tapToDo;
-        $this->version = ($this->config->get("version") === false ? 0 : $this->config->get("version"));
+        $this->version = $this->config->get("version", 0);
     }
     public function checkConfig(){
         if($this->version > ConfigUpdater::CONFIG_VERSION){
