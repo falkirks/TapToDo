@@ -12,16 +12,16 @@ use pocketmine\plugin\PluginBase;
 use pocketmine\utils\Config;
 
 class TapToDo extends PluginBase implements CommandExecutor, Listener{
-    public $s;
+    public $sessions;
+    /** @var  Block[] */
+    public $blocks;
     /** @var  Config */
-    public $config;
-    public $b;
+    private $blocksConfig;
     public function onEnable(){
-        $this->s = [];
-        $this->b = [];
+        $this->sessions = [];
+        $this->blocks = [];
         $this->saveResource("blocks.yml");
-        $this->config = new Config($this->getDataFolder() . "blocks.yml", Config::YAML, array());
-        $this->config = (new ConfigUpdater($this->config, $this))->checkConfig();
+        $this->blocksConfig = (new ConfigUpdater(new Config($this->getDataFolder() . "blocks.yml", Config::YAML, array()), $this))->checkConfig();
         $this->getServer()->getPluginManager()->registerEvents($this, $this);
         $this->parseBlockData();
     }
@@ -38,7 +38,7 @@ class TapToDo extends PluginBase implements CommandExecutor, Listener{
                                 $block->addCommand(implode(" ", $args));
                                 $i++;
                             }
-                            $sender->sendMessage("Added commmand to $i blocks.");
+                            $sender->sendMessage("Added command to $i blocks.");
                             return true;
                             break;
                         case "del":
@@ -46,17 +46,17 @@ class TapToDo extends PluginBase implements CommandExecutor, Listener{
                             $name = array_shift($args);
                             array_shift($args);
                             foreach($this->getBlocksByName($name) as $block){
-                                if(($block->delCommand(implode(" ", $args))) !== false){
+                                if(($block->deleteCommand(implode(" ", $args))) !== false){
                                     $i++;
                                 }
                             }
-                            $sender->sendMessage("Deleted commmand from $i blocks.");
+                            $sender->sendMessage("Deleted command from $i blocks.");
                             return true;
                             break;
                         case "delall":
                             $i = 0;
                             foreach($this->getBlocksByName($args[0]) as $block){
-                                $this->removeBlock($block);
+                                $this->deleteBlock($block);
                                 $i++;
                             }
                             $sender->sendMessage("Deleted $i blocks.");
@@ -66,7 +66,7 @@ class TapToDo extends PluginBase implements CommandExecutor, Listener{
                         case "rename":
                             $i = 0;
                             foreach($this->getBlocksByName($args[0]) as $block){
-                                $block->nameBlock($block);
+                                $block->setName($block);
                                 $i++;
                             }
                             $sender->sendMessage("Renamed $i blocks.");
@@ -75,7 +75,7 @@ class TapToDo extends PluginBase implements CommandExecutor, Listener{
                         case "list":
                             $i = 0;
                             foreach($this->getBlocksByName($args[0]) as $block){
-                                $pos = $block->getPos();
+                                $pos = $block->getPosition();
                                 $sender->sendMessage("Commands for block at X:" . $pos->getX() . " Y:" . $pos->getY() . " Z:" . $pos->getY() . " Level:" . $pos->getLevel()->getName());
                                 foreach($block->getCommands() as $cmd){
                                     $sender->sendMessage("- $cmd");
@@ -85,19 +85,24 @@ class TapToDo extends PluginBase implements CommandExecutor, Listener{
                             $sender->sendMessage("Listed $i blocks.");
                             return true;
                             break;
+                        default:
+                            return false;
+                            break;
                     }
                 }
                 else{
-                    $sender->sendMessage("You don't have permission.");
-                    return true;
+                    return false;
                 }
+            }
+            else{
+                return false;
             }
         }
         else{
             if($sender instanceof Player){
                 if(isset($args[0])){
                     if($sender->hasPermission("taptodo.command." . $args[0])){
-                        $this->s[$sender->getName()] = $args;
+                        $this->sessions[$sender->getName()] = $args;
                         $sender->sendMessage("Tap a block to complete action...");
                         return true;
                     }
@@ -112,10 +117,11 @@ class TapToDo extends PluginBase implements CommandExecutor, Listener{
                 return true;
             }
         }
+        return true;
     }
     public function onInteract(PlayerInteractEvent $event){
-        if(isset($this->s[$event->getPlayer()->getName()])){
-            $args = $this->s[$event->getPlayer()->getName()];
+        if(isset($this->sessions[$event->getPlayer()->getName()])){
+            $args = $this->sessions[$event->getPlayer()->getName()];
             switch($args[0]){
                 case "add":
                     if(isset($args[1])){
@@ -138,7 +144,7 @@ class TapToDo extends PluginBase implements CommandExecutor, Listener{
                     if(isset($args[1])){
                         if(($b = $this->getBlock($event->getBlock(), null, null, null)) instanceof Block){
                             array_shift($args);
-                            if(($b->delCommand(implode(" ", $args))) !== false){
+                            if(($b->deleteCommand(implode(" ", $args))) !== false){
                                 $event->getPlayer()->sendMessage("Command removed.");
                             }
                             else{
@@ -156,8 +162,8 @@ class TapToDo extends PluginBase implements CommandExecutor, Listener{
                     break;
                 case "delall":
                     if(($b = $this->getBlock($event->getBlock(), null, null, null)) instanceof Block){
-                        $this->removeBlock($b);
-                        $event->getPlayer()->sendMessage("Block removed.");
+                        $this->deleteBlock($b);
+                        $event->getPlayer()->sendMessage("Block deleted.");
                     }
                     else{
                         $event->getPlayer()->sendMessage("Block doesn't exist.");
@@ -166,7 +172,7 @@ class TapToDo extends PluginBase implements CommandExecutor, Listener{
                 case "name":
                     if(isset($args[1])){
                         if(($b = $this->getBlock($event->getBlock(), null, null, null)) instanceof Block){
-                            $b->nameBlock($args[1]);
+                            $b->setName($args[1]);
                             $event->getPlayer()->sendMessage("Block named.");
                         }
                         else{
@@ -188,81 +194,99 @@ class TapToDo extends PluginBase implements CommandExecutor, Listener{
                     }
                     break;
             }
-            unset($this->s[$event->getPlayer()->getName()]);
+            unset($this->sessions[$event->getPlayer()->getName()]);
         }
         else{
             if(($b = $this->getBlock($event->getBlock(), null, null, null)) instanceof Block && $event->getPlayer()->hasPermission("taptodo.tap")){
-                $b->runCommands($event->getPlayer());
+                $b->executeCommands($event->getPlayer());
             }
         }
     }
     public function onLevelLoad(LevelLoadEvent $event){
-        $this->getLogger()->info("Reloading blocks due to level loaded...");
+        $this->getLogger()->info("Reloading blocks due to level " . $event->getLevel()->getName() . " loaded...");
         $this->parseBlockData();
     }
+
+    /**
+     * @param $name
+     * @return Block[]
+     */
     public function getBlocksByName($name){
         $ret = [];
-        foreach($this->b as $block){
+        foreach($this->blocks as $block){
             if($block->getName() === $name) $ret[] = $block;
         }
         return $ret;
     }
+
+    /**
+     * @param $x
+     * @param $y
+     * @param $z
+     * @param $level
+     * @return Block
+     */
     public function getBlock($x, $y, $z, $level){
-        if($x instanceof Position) return (isset($this->b[$x->getX() . ":" . $x->getY() . ":" . $x->getZ() . ":" . $x->getLevel()->getName()]) ? $this->b[$x->getX() . ":" . $x->getY() . ":" . $x->getZ() . ":" . $x->getLevel()->getName()] : false);
-        else return (isset($this->b[$x . ":" . $y . ":" . $z . ":" . $level]) ? $this->b[$x . ":" . $y . ":" . $z . ":" . $level] : false);
+        if($x instanceof Position) return (isset($this->blocks[$x->getX() . ":" . $x->getY() . ":" . $x->getZ() . ":" . $x->getLevel()->getName()]) ? $this->blocks[$x->getX() . ":" . $x->getY() . ":" . $x->getZ() . ":" . $x->getLevel()->getName()] : false);
+        else return (isset($this->blocks[$x . ":" . $y . ":" . $z . ":" . $level]) ? $this->blocks[$x . ":" . $y . ":" . $z . ":" . $level] : false);
     }
+    /**
+     *
+     */
     public function parseBlockData(){
-        $this->b = [];
-        foreach($this->config->get("blocks") as $i => $block){
+        $this->blocks = [];
+        foreach($this->blocksConfig->get("blocks") as $i => $block){
             if($this->getServer()->isLevelLoaded($block["level"])){
                 $pos = new Position($block["x"], $block["y"], $block["z"], $this->getServer()->getLevelByName($block["level"]));
-                if(isset($block["name"])) $this->b[$pos->__toString()] = new Block($pos, $block["commands"], $this->config, $block["name"]);
-                else $this->b[$block["x"] . ":" . $block["y"] . ":" . $block["z"] . ":" . $block["level"]] = new Block($pos, $block["commands"], $this, $i);
+                if(isset($block["name"])) $this->blocks[$pos->__toString()] = new Block($pos, $block["commands"], $this, $block["name"]);
+                else $this->blocks[$block["x"] . ":" . $block["y"] . ":" . $block["z"] . ":" . $block["level"]] = new Block($pos, $block["commands"], $this, $i);
             }
             else{
                 $this->getLogger()->warning("Could not load block in level " . $block["level"] . " because that level is not loaded.");
             }
         }
     }
-    public function removeBlock(Block $block){
-        $blocks = $this->config->get("blocks");
+
+    /**
+     * @param Block $block
+     */
+    public function deleteBlock(Block $block){
+        $blocks = $this->blocksConfig->get("blocks");
         unset($blocks[$block->id]);
-        $this->config->set("blocks", $blocks);
-        $this->config->save();
+        $this->blocksConfig->set("blocks", $blocks);
+        $this->blocksConfig->save();
         $this->parseBlockData();
     }
+    /**
+     * @param Position $p
+     * @param $cmd
+     * @return Block
+     */
     public function addBlock(Position $p, $cmd){
-        $block = new Block(new Position($p->getX(), $p->getY(), $p->getZ(), $p->getLevel()), [$cmd], $this, count($this->config->get("blocks")));
+        $block = new Block(new Position($p->getX(), $p->getY(), $p->getZ(), $p->getLevel()), [$cmd], $this, count($this->blocksConfig->get("blocks")));
         $this->saveBlock($block);
-        $this->config->save();
+        $this->blocksConfig->save();
         return $block;
     }
+
+    /**
+     * @param Block $block
+     */
     public function saveBlock(Block $block){
-        $this->b[$block->getPos()->getX() . ":" . $block->getPos()->getY() . ":" . $block->getPos()->getZ() . ":" . $block->getPos()->getLevel()->getName()] = $block;
-        $blocks = $this->config->get("blocks");
+        $this->blocks[$block->getPosition()->getX() . ":" . $block->getPosition()->getY() . ":" . $block->getPosition()->getZ() . ":" . $block->getPosition()->getLevel()->getName()] = $block;
+        $blocks = $this->blocksConfig->get("blocks");
         $blocks[$block->id] = $block->toArray();
-        $this->config->set("blocks", $blocks);
+        $this->blocksConfig->set("blocks", $blocks);
+        $this->blocksConfig->save();
     }
+    /**
+     *
+     */
     public function onDisable(){
         $this->getLogger()->info("Saving blocks...");
-        foreach($this->b as $block){
+        foreach($this->blocks as $block){
             $this->saveBlock($block);
         }
-        $this->config->save();
+        $this->blocksConfig->save();
     }
-
-    /**
-     * @return mixed
-     */
-    public function getConfig(){
-        return $this->config;
-    }
-
-    /**
-     * @param mixed $config
-     */
-    public function setConfig($config){
-        $this->config = $config;
-    }
-
 }
