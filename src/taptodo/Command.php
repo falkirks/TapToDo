@@ -29,7 +29,7 @@ class Command {
             $this->compiledCommand = str_replace("%safe", "", $this->compiledCommand);
             if (strpos($this->compiledCommand, "%pow") !== false && ($this->compiledCommand = str_replace("%pow", "", $this->compiledCommand))) {
                 $this->executionMode = Command::AS_CONSOLE_TYPE;
-            } elseif (strpos($this->compiledCommand, "%op") !== false && ($c = str_replace("%op", "", $this->compiledCommand))) {
+            } elseif (strpos($this->compiledCommand, "%op") !== false && ($this->compiledCommand = str_replace("%op", "", $this->compiledCommand))) {
                 $this->executionMode = Command::AS_OP_TYPE;
             }
         }
