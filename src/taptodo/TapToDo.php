@@ -31,6 +31,7 @@ class TapToDo extends PluginBase implements CommandExecutor, Listener{
                 if($sender->hasPermission("taptodo.command." . $args[1])){
                     switch($args[1]){
                         case "add":
+                        case "a":  
                             $i = 0;
                             $name = array_shift($args);
                             array_shift($args);
@@ -42,6 +43,7 @@ class TapToDo extends PluginBase implements CommandExecutor, Listener{
                             return true;
                             break;
                         case "del":
+                        case "d":
                             $i = 0;
                             $name = array_shift($args);
                             array_shift($args);
@@ -54,6 +56,7 @@ class TapToDo extends PluginBase implements CommandExecutor, Listener{
                             return true;
                             break;
                         case "delall":
+                        case "da":
                             $i = 0;
                             foreach($this->getBlocksByName($args[0]) as $block){
                                 $this->deleteBlock($block);
@@ -63,6 +66,7 @@ class TapToDo extends PluginBase implements CommandExecutor, Listener{
                             return true;
                             break;
                         case "name":
+                        case "n":
                         case "rename":
                             $i = 0;
                             foreach($this->getBlocksByName($args[0]) as $block){
@@ -73,6 +77,8 @@ class TapToDo extends PluginBase implements CommandExecutor, Listener{
                             return true;
                             break;
                         case "list":
+                        case "ls":
+                        case "l":
                             $i = 0;
                             foreach($this->getBlocksByName($args[0]) as $block){
                                 $pos = $block->getPosition();
