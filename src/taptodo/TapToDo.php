@@ -244,8 +244,9 @@ class TapToDo extends PluginBase implements CommandExecutor, Listener{
         foreach($this->blocksConfig->get("blocks") as $i => $block){
             if($this->getServer()->isLevelLoaded($block["level"])){
                 $pos = new Position($block["x"], $block["y"], $block["z"], $this->getServer()->getLevelByName($block["level"]));
-                if(isset($block["name"])) $this->blocks[$pos->__toString()] = new Block($pos, $block["commands"], $this, $block["name"]);
-                else $this->blocks[$block["x"] . ":" . $block["y"] . ":" . $block["z"] . ":" . $block["level"]] = new Block($pos, $block["commands"], $this, $i);
+                $key = $block["x"] . ":" . $block["y"] . ":" . $block["z"] . ":" . $block["level"];
+                if(isset($block["name"])) $this->blocks[$key] = new Block($pos, $block["commands"], $this, $block["name"]);
+                else $this->blocks[$key] = new Block($pos, $block["commands"], $this, $i);
             }
             else{
                 $this->getLogger()->warning("Could not load block in level " . $block["level"] . " because that level is not loaded.");
